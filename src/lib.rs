@@ -89,5 +89,6 @@ pub mod io;
 pub mod network;
 pub mod optim;
 pub mod sim;
+pub mod utils;
 
 pub use network::{Gate, Network, Signal};
