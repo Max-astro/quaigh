@@ -3,6 +3,7 @@ use crate::{Network, Signal};
 /// View of the fanout of each node in a network
 /// Since quaigh network cannot access a node's fanout nodes directly,
 /// this view provides a way to get the fanout of each node.
+#[derive(Debug, Clone, Default)]
 pub struct FanoutView {
     pi_fanout: Vec<Vec<u32>>,
     node_fanout: Vec<Vec<u32>>,
