@@ -5,7 +5,7 @@ use crate::{Gate, Network, Signal};
 
 struct LevelViewBuilder<'a> {
     ntk: &'a Network,
-    pi_levels: Option<&'a Vec<u32>>,
+    pi_levels: Option<&'a Vec<i32>>,
     count_buffer: bool,
     visited: FxHashSet<u32>,
 }
@@ -22,9 +22,9 @@ impl<'a> LevelViewBuilder<'a> {
     /// A vector of levels for each node in the network
     pub fn compute_levels(
         ntk: &'a Network,
-        pi_levels_config: Option<&'a Vec<u32>>,
+        pi_levels_config: Option<&'a Vec<i32>>,
         count_buffer: Option<bool>,
-    ) -> Vec<u32> {
+    ) -> Vec<i32> {
         if let Some(levels) = pi_levels_config {
             assert_eq!(
                 levels.len(),
@@ -42,7 +42,7 @@ impl<'a> LevelViewBuilder<'a> {
         .build()
     }
 
-    pub fn build(&mut self) -> Vec<u32> {
+    pub fn build(&mut self) -> Vec<i32> {
         let mut levels = vec![0; self.ntk.nb_nodes()];
 
         for po in 0..self.ntk.nb_outputs() {
@@ -52,13 +52,13 @@ impl<'a> LevelViewBuilder<'a> {
         levels
     }
 
-    fn fanin_level(&self, pi: u32) -> u32 {
+    fn fanin_level(&self, pi: u32) -> i32 {
         self.pi_levels
             .map(|levels| levels[pi as usize])
             .unwrap_or(0)
     }
 
-    pub fn update(&mut self, node: u32, levels: &mut Vec<u32>) -> u32 {
+    pub fn update(&mut self, node: u32, levels: &mut Vec<i32>) -> i32 {
         if self.visited.contains(&node) {
             return levels[node as usize];
         }
@@ -92,7 +92,7 @@ impl<'a> LevelViewBuilder<'a> {
 struct ReverseLevelViewBuilder<'a> {
     ntk: &'a Network,
     fanout_view: &'a FanoutView,
-    po_levels: Option<&'a Vec<u32>>,
+    po_levels: Option<&'a Vec<i32>>,
     count_buffer: bool,
     visited: FxHashSet<u32>,
 }
@@ -101,9 +101,9 @@ impl<'a> ReverseLevelViewBuilder<'a> {
     pub fn compute_levels(
         ntk: &'a Network,
         fanout_view: &'a FanoutView,
-        po_levels_config: Option<&'a Vec<u32>>,
+        po_levels_config: Option<&'a Vec<i32>>,
         count_buffer: Option<bool>,
-    ) -> Vec<u32> {
+    ) -> Vec<i32> {
         if let Some(levels) = po_levels_config {
             assert_eq!(
                 levels.len(),
@@ -122,7 +122,7 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         .build()
     }
 
-    pub fn build(&mut self) -> Vec<u32> {
+    pub fn build(&mut self) -> Vec<i32> {
         let mut levels = vec![0; self.ntk.nb_nodes()];
 
         for pi in 0..self.ntk.nb_inputs() {
@@ -132,13 +132,13 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         levels
     }
 
-    fn fanout_level(&self, po: u32) -> u32 {
+    fn fanout_level(&self, po: u32) -> i32 {
         self.po_levels
             .map(|levels| levels[po as usize])
             .unwrap_or(0)
     }
 
-    fn add_fanout_levels(&self, sig: Signal) -> u32 {
+    fn add_fanout_levels(&self, sig: Signal) -> i32 {
         if self.po_levels.is_none() || !sig.is_var()
         // || !self.fanout_view.fanouts(self.ntk.node(node as usize)).is_empty()
         {
@@ -149,7 +149,7 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         }
     }
 
-    pub fn update(&mut self, sig: Signal, levels: &mut Vec<u32>) -> u32 {
+    pub fn update(&mut self, sig: Signal, levels: &mut Vec<i32>) -> i32 {
         let mut lv = self.add_fanout_levels(sig);
         for &fanout in self.fanout_view.fanouts(sig) {
             lv = lv.max(self.update_node(fanout, levels));
@@ -157,7 +157,7 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         lv
     }
 
-    pub fn update_node(&mut self, node: u32, levels: &mut Vec<u32>) -> u32 {
+    pub fn update_node(&mut self, node: u32, levels: &mut Vec<i32>) -> i32 {
         if self.visited.contains(&node) {
             return levels[node as usize];
         }
@@ -166,7 +166,7 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         let sig = self.ntk.node(node as usize);
         let lv = self.update(sig, levels);
 
-        let mut inc = if self.count_buffer {
+        let inc = if self.count_buffer {
             1
         } else {
             if let Gate::Buf(_) = self.ntk.gate(node as usize) {
@@ -189,7 +189,7 @@ impl<'a> ReverseLevelViewBuilder<'a> {
 ///
 /// # Returns
 /// A vector of levels for each node in the network
-pub fn compute_levels(ntk: &Network, count_buffer: bool) -> Vec<u32> {
+pub fn compute_levels(ntk: &Network, count_buffer: bool) -> Vec<i32> {
     LevelViewBuilder::compute_levels(ntk, None, Some(count_buffer))
 }
 
@@ -201,7 +201,7 @@ pub fn compute_levels(ntk: &Network, count_buffer: bool) -> Vec<u32> {
 ///
 /// # Returns
 /// A vector of reverse levels for each node in the network
-pub fn compute_reverse_levels(ntk: &Network, count_buffer: bool) -> Vec<u32> {
+pub fn compute_reverse_levels(ntk: &Network, count_buffer: bool) -> Vec<i32> {
     ReverseLevelViewBuilder::compute_levels(ntk, &FanoutView::new(ntk), None, Some(count_buffer))
 }
 
