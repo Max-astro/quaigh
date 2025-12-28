@@ -10,6 +10,7 @@ pub struct FanoutView {
 }
 
 impl FanoutView {
+    /// Create a new fanout view for a network
     pub fn new(ntk: &Network) -> Self {
         let mut fanout_view = FanoutView {
             pi_fanout: vec![vec![]; ntk.nb_inputs()],
@@ -29,6 +30,7 @@ impl FanoutView {
         fanout_view
     }
 
+    /// Get all fanout nodes of a signal
     pub fn fanouts(&self, s: Signal) -> &[u32] {
         if s.is_input() {
             &self.pi_fanout[s.input() as usize]
@@ -42,8 +44,6 @@ impl FanoutView {
 
 #[cfg(test)]
 mod tests {
-    use std::path;
-
     use super::*;
 
     fn verify_fanout_view(fanout_view: &FanoutView, ntk: &Network) {

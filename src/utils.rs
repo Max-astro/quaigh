@@ -6,3 +6,4 @@ mod level_view;
 // mod window;
 
 pub use fanout_view::FanoutView;
+pub use level_view::{compute_levels, compute_reverse_levels};

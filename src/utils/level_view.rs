@@ -3,26 +3,6 @@ use fxhash::FxHashSet;
 use crate::utils::FanoutView;
 use crate::{Gate, Network, Signal};
 
-#[derive(Debug, Clone, Default)]
-pub struct LevelView {
-    level: Vec<u32>,
-    level_reverse: Vec<u32>,
-}
-
-impl LevelView {
-    // pub fn compute_levels(ntk: &Network, fanout_view: &FanoutView, pi_levels: Option<&Vec<u32>>) -> Vec<u32> {
-    //     let mut levels = vec![0; ntk.nb_nodes()];
-
-    //     for po in 0..ntk.nb_outputs() {
-    //         update()
-    //     }
-    // }
-
-    pub fn update(&mut self, node: u32, ntk: &Network) {}
-
-    pub fn update_reverse(&mut self, node: u32, ntk: &Network) {}
-}
-
 struct LevelViewBuilder<'a> {
     ntk: &'a Network,
     pi_levels: Option<&'a Vec<u32>>,
@@ -199,6 +179,30 @@ impl<'a> ReverseLevelViewBuilder<'a> {
         levels[node as usize] = lv + inc;
         levels[node as usize]
     }
+}
+
+/// Compute the levels of the network
+///
+/// # Arguments
+/// * `ntk` - The network to compute the levels of
+/// * `count_buffer` - Whether to count buffers as levels
+///
+/// # Returns
+/// A vector of levels for each node in the network
+pub fn compute_levels(ntk: &Network, count_buffer: bool) -> Vec<u32> {
+    LevelViewBuilder::compute_levels(ntk, None, Some(count_buffer))
+}
+
+/// Compute the reverse levels of the network
+///
+/// # Arguments
+/// * `ntk` - The network to compute the reverse levels of
+/// * `count_buffer` - Whether to count buffers as levels
+///
+/// # Returns
+/// A vector of reverse levels for each node in the network
+pub fn compute_reverse_levels(ntk: &Network, count_buffer: bool) -> Vec<u32> {
+    ReverseLevelViewBuilder::compute_levels(ntk, &FanoutView::new(ntk), None, Some(count_buffer))
 }
 
 #[cfg(test)]
