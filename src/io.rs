@@ -2,6 +2,7 @@
 
 mod bench;
 mod blif;
+mod dot;
 mod patterns;
 mod utils;
 
@@ -10,6 +11,7 @@ use std::path::PathBuf;
 
 pub use bench::{read_bench, write_bench};
 pub use blif::{read_blif, write_blif};
+pub use dot::write_dot;
 pub use patterns::{read_patterns, write_patterns};
 
 use crate::Network;
@@ -68,4 +70,16 @@ pub fn read_pattern_file(path: &PathBuf) -> Vec<Vec<Vec<bool>>> {
 pub fn write_pattern_file(path: &PathBuf, patterns: &Vec<Vec<Vec<bool>>>) {
     let mut f = File::create(path).unwrap();
     write_patterns(&mut f, patterns);
+}
+
+/// Write a logic network to a DOT graph file
+///
+/// The DOT format can be visualized using Graphviz or similar tools.
+/// - Complementary edges (inverted signals) are drawn with dashed lines
+/// - Each node shows its Gate type (LUT gates also show truthtable in hex)
+/// - Primary inputs use up triangle shape (▼)
+/// - Primary outputs use down triangle shape (▲)
+pub fn write_dot_file(path: &PathBuf, aig: &Network) {
+    let mut f = File::create(path).unwrap();
+    write_dot(&mut f, aig);
 }
