@@ -3,7 +3,8 @@
 // mod cuts;
 mod fanout_view;
 mod level_view;
-// mod window;
+mod window;
 
 pub use fanout_view::FanoutView;
 pub use level_view::{compute_levels, compute_reverse_levels};
+// pub use window::WindowConstructor;
