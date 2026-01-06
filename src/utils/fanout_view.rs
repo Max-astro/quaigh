@@ -60,6 +60,11 @@ mod tests {
         );
 
         for pi in 0..ntk.nb_inputs() {
+            // check complement signals have the same fanouts
+            assert_eq!(
+                fanout_view.fanouts(ntk.input(pi)),
+                fanout_view.fanouts(!ntk.input(pi))
+            );
             for &node in fanout_view.fanouts(ntk.input(pi)) {
                 assert!(
                     ntk.gate(node as usize)
@@ -71,6 +76,11 @@ mod tests {
             }
         }
         for i in 0..ntk.nb_nodes() {
+            // check complement signals have the same fanouts
+            assert_eq!(
+                fanout_view.fanouts(ntk.node(i)),
+                fanout_view.fanouts(!ntk.node(i))
+            );
             for &fanout in fanout_view.fanouts(ntk.node(i)) {
                 assert!(
                     ntk.gate(fanout as usize)
