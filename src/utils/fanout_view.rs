@@ -44,6 +44,8 @@ impl FanoutView {
 
 #[cfg(test)]
 mod tests {
+    use crate::Gate;
+
     use super::*;
 
     fn verify_fanout_view(fanout_view: &FanoutView, ntk: &Network) {
@@ -106,9 +108,12 @@ mod tests {
         let f3 = aig.and(x1, x3);
         let f4 = aig.and(f1, f2);
         let f5 = aig.and(f3, f4);
+        let f6 = aig.add(Gate::mux(f4, Signal::one(), f5));
 
         aig.add_output(f5);
+        aig.add_output(f6);
 
+        // crate::io::write_dot_file(&std::path::PathBuf::from("fanout_view.dot"), &aig);
         // println!("{}", aig);
 
         let fanout_view = FanoutView::new(&aig);
@@ -119,8 +124,9 @@ mod tests {
         assert_eq!(fanout_view.node_fanout[0], vec![3]);
         assert_eq!(fanout_view.node_fanout[1], vec![3]);
         assert_eq!(fanout_view.node_fanout[2], vec![4]);
-        assert_eq!(fanout_view.node_fanout[3], vec![4]);
-        assert_eq!(fanout_view.node_fanout[4], vec![]);
+        assert_eq!(fanout_view.node_fanout[3], vec![4, 5]);
+        assert_eq!(fanout_view.node_fanout[4], vec![5]);
+        assert_eq!(fanout_view.node_fanout[5], vec![]);
 
         verify_fanout_view(&fanout_view, &aig);
     }
