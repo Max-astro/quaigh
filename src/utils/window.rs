@@ -415,6 +415,36 @@ mod tests {
         validate_signals(divisors, expected_len, "divisors")
     }
 
+    fn assert_topo_order(ntk: &Network, window: &[Signal]) {
+        let mut position = FxHashMap::default();
+        for (idx, sig) in window.iter().enumerate() {
+            position.insert(*sig, idx);
+        }
+
+        for (idx, sig) in window.iter().enumerate() {
+            if !sig.is_var() {
+                continue;
+            }
+
+            let gate = ntk.gate(sig.var() as usize);
+            for fanin in gate.dependencies().iter() {
+                let key = if fanin.is_constant() {
+                    *fanin
+                } else {
+                    fanin.without_inversion()
+                };
+                let fanin_idx = position
+                    .get(&key)
+                    .copied()
+                    .unwrap_or_else(|| panic!("fanin {key} of node {sig} is missing from window"));
+                assert!(
+                    fanin_idx < idx,
+                    "fanin {key} (index {fanin_idx}) appears after node {sig} (index {idx})"
+                );
+            }
+        }
+    }
+
     #[test]
     fn test_window_construction() {
         let mut aig = Network::default();
@@ -516,5 +546,74 @@ mod tests {
         traverse_fanout(2, 7, &[2], &[]);
         traverse_fanout(1, 11, &[4, 5], &[3, 4, 5]);
         traverse_fanout(0, 11, &[4, 5], &[3, 4, 5]);
+    }
+
+    #[test]
+    fn test_closuring_window_topo_order() {
+        let mut aig = Network::default();
+        let x1 = aig.add_input();
+        let x2 = aig.add_input();
+        let x3 = aig.add_input();
+        let x4 = aig.add_input();
+        let x5 = aig.add_input();
+        let x6 = aig.add_input();
+
+        let f1 = aig.and(x1, x2);
+        let f2 = aig.and(x3, x4);
+        let f3 = aig.xor(x5, x6);
+        let f4 = aig.and(f1, !f2);
+        let f5 = aig.xor(f1, f3);
+        let f6 = aig.and(f4, f5);
+        let f7 = aig.add(Gate::mux(f2, f3, f1));
+        let f8 = aig.and(f6, f7);
+        let f9 = aig.xor(f4, f8);
+        let f10 = aig.and(f8, !f3);
+        let f11 = aig.add(Gate::mux(f9, f10, !f5));
+        let f12 = aig.and(f11, f2);
+        let f13 = aig.xor(f12, f7);
+        let f14 = aig.and(f13, f6);
+        let f15 = aig.xor(f14, f1);
+        let f16 = aig.add(Gate::mux(f15, f9, f3));
+        let f17 = aig.and(f16, f10);
+        let f18 = aig.xor(f17, f2);
+        let f19 = aig.and(f18, f8);
+        let f20 = aig.xor(f19, f11);
+
+        aig.add_output(f12);
+        aig.add_output(!f16);
+        aig.add_output(f20);
+
+        // println!("{}", aig);
+        // crate::io::write_dot_file(&std::path::PathBuf::from("window3.dot"), &aig);
+
+        let config = WinConfig::default();
+        let mut constructor = WindowConstructor::new(&aig, &config);
+
+        // let pivot = f17.var() as usize;
+
+        let mut check_window = |pivot: usize| {
+            constructor.set_pivot(pivot);
+
+            let tfi_cone = constructor
+                .collect_tfi_cone()
+                .expect("TFI cone should not be empty");
+            let divisors = constructor.collect_divisors(&tfi_cone);
+            let (roots, tfo) = constructor.collect_root_and_tfo();
+            let window = constructor
+                .closuring_window(&roots, &tfo, &divisors)
+                .expect("closuring window should be available");
+
+            // println!("tfi_cone: {:?}", tfi_cone);
+            // println!("roots: {:?}", roots);
+            // println!("tfo: {:?}", tfo);
+            // println!("divisors: {:?}", divisors);
+            // println!("window: {:?}", window);
+
+            assert_topo_order(&aig, &window);
+        };
+
+        for n in 0..aig.nb_nodes() {
+            check_window(n);
+        }
     }
 }
