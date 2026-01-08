@@ -6,12 +6,19 @@ use crate::{
     Gate, Network, Signal,
 };
 
-struct WinConfig {
-    tfi_max_level: usize,
-    tfo_max_level: usize,
-    max_window_size: usize,
-    max_fanout: usize,
-    max_tfo_level: usize,
+/// Configuration for windowing
+#[derive(Debug, Clone)]
+pub struct WinConfig {
+    /// The maximum level of the TFI cone
+    pub tfi_max_level: usize,
+    /// The maximum level of the TFO cone
+    pub tfo_max_level: usize,
+    /// The maximum size of the window
+    pub max_window_size: usize,
+    /// The maximum fanout of the network
+    pub max_fanout: usize,
+    /// The maximum level of the TFO cone
+    pub max_tfo_level: usize,
 }
 
 impl Default for WinConfig {
@@ -26,25 +33,55 @@ impl Default for WinConfig {
     }
 }
 
-struct Window {
-    pis: Vec<Signal>,
-    pos: Vec<Signal>,
-    nodes: Vec<usize>,
-    pivot: usize,
+/// A window of a network
+/// * Ref: sfm/sfmWin.c
+#[derive(Debug, Clone)]
+pub struct Window {
+    /// The pivot node of the window
+    pub pivot: usize,
+    /// The divisors of the window
+    pub divisors: Vec<Signal>,
+    /// The TFI cone of the window
+    pub tfi: Vec<Signal>,
+    /// The TFO cone of the window
+    pub tfo: Vec<usize>,
+    /// The roots of the window
+    pub roots: Vec<usize>,
+    /// The ordered nodes of the window
+    pub ordered: Vec<Signal>,
 }
 
 impl Window {
-    pub fn new(pivot: usize) -> Self {
-        Window {
-            pis: Vec::new(),
-            pos: Vec::new(),
-            nodes: Vec::new(),
+    /// Create a new window from a constructor and a pivot node
+    ///
+    /// # Arguments
+    /// * `constructor` - A resueable constructor of the window
+    /// * `pivot` - The pivot node of the window
+    ///
+    /// # Returns
+    /// * `Some(Window)` - The window if it is available
+    pub fn new(constructor: &mut WindowConstructor, pivot: usize) -> Option<Self> {
+        constructor.set_pivot(pivot);
+        let tfi = constructor.collect_tfi_cone()?;
+        let divisors = constructor.collect_divisors(&tfi);
+        let (roots, tfo) = constructor.collect_root_and_tfo();
+        let ordered = constructor.closuring_window(&roots, &tfo, &divisors)?;
+
+        Some(Window {
             pivot,
-        }
+            divisors,
+            tfi,
+            tfo,
+            roots,
+            ordered,
+        })
     }
 }
 
-struct WindowConstructor<'a> {
+/// A reusable constructor for windows
+/// * Ref: sfm/sfmWin.c
+#[derive(Debug, Clone)]
+pub struct WindowConstructor<'a> {
     ntk: &'a Network,
     config: &'a WinConfig,
     levels: Vec<i32>,
@@ -57,6 +94,17 @@ struct WindowConstructor<'a> {
 }
 
 impl<'a> WindowConstructor<'a> {
+    /// Create a new constructor for windows
+    ///
+    /// # Arguments
+    /// * `ntk` - The network to construct windows for
+    /// * `config` - The configuration for the windows
+    ///
+    /// # Returns
+    /// * `WindowConstructor` - The constructor
+    ///
+    /// # Notes
+    /// * The constructor is reusable and can be used to construct multiple windows
     pub fn new(ntk: &'a Network, config: &'a WinConfig) -> Self {
         let levels = compute_levels(ntk, true);
         let max_level = *levels.iter().max().unwrap_or(&0);
@@ -80,19 +128,15 @@ impl<'a> WindowConstructor<'a> {
         }
     }
 
-    pub fn set_pivot(&mut self, pivot: usize) {
+    /// Set the pivot node for the next window
+    fn set_pivot(&mut self, pivot: usize) {
         self.reset();
         self.pivot = Some(pivot);
     }
 
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.tfi_visited = FxHashSet::default();
         self.pivot = None;
-    }
-
-    pub fn construct(&mut self, pivot: usize) -> Option<Window> {
-        self.pivot = Some(pivot);
-        todo!()
     }
 
     fn tfi_rec(
@@ -592,24 +636,9 @@ mod tests {
         // let pivot = f17.var() as usize;
 
         let mut check_window = |pivot: usize| {
-            constructor.set_pivot(pivot);
+            let window = Window::new(&mut constructor, pivot).expect("window should be available");
 
-            let tfi_cone = constructor
-                .collect_tfi_cone()
-                .expect("TFI cone should not be empty");
-            let divisors = constructor.collect_divisors(&tfi_cone);
-            let (roots, tfo) = constructor.collect_root_and_tfo();
-            let window = constructor
-                .closuring_window(&roots, &tfo, &divisors)
-                .expect("closuring window should be available");
-
-            // println!("tfi_cone: {:?}", tfi_cone);
-            // println!("roots: {:?}", roots);
-            // println!("tfo: {:?}", tfo);
-            // println!("divisors: {:?}", divisors);
-            // println!("window: {:?}", window);
-
-            assert_topo_order(&aig, &window);
+            assert_topo_order(&aig, &window.ordered);
         };
 
         for n in 0..aig.nb_nodes() {
